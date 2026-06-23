@@ -8,12 +8,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DG="$REPO_ROOT/target/release/dg"
 F="${1:-/home/falk/sources/logs/SPA3/ARTHTP-6395/ECU1_DHU_UXC_HPA_SGA_TCA_2026-05-03T23_50-21.958799TZ02-00.dlt}"
 RESULTS_DIR="$REPO_ROOT/bench/results"
-HYPERFINE="${HYPERFINE:-$(command -v hyperfine 2>/dev/null || echo "$HOME/.cargo/bin/hyperfine")}"
 
 # ── pre-flight ────────────────────────────────────────────────────────────────
 [[ -f "$DG" ]]       || { echo "release binary not found — run: cargo build --release"; exit 1; }
 [[ -f "$F"  ]]       || { echo "DLT file not found: $F"; exit 1; }
-[[ -x "$HYPERFINE" ]] || { echo "hyperfine not found (tried $HYPERFINE)"; exit 1; }
 command -v dlt-convert >/dev/null || { echo "dlt-convert not found"; exit 1; }
 
 mkdir -p "$RESULTS_DIR"
@@ -30,7 +28,7 @@ run() {
     echo "  $slug"
     echo "══════════════════════════════════════════════"
 
-    "$HYPERFINE" \
+    hyperfine \
         --warmup 1 \
         --min-runs 3 \
         --export-markdown "$md" \
