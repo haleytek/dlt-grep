@@ -6,7 +6,14 @@ use dlt_core::{
 };
 use std::{fs::File, io::Write, path::Path};
 
+/// ANSI color codes (only emitted when the caller sets `GrepOpts::highlight`).
+pub const COLOR_PATH: &str  = "\x1b[1;35m"; // bold magenta  — file paths
+pub const COLOR_MATCH: &str = "\x1b[1;31m"; // bold red      — matched text
+pub const COLOR_LINENO: &str= "\x1b[1;32m"; // bold green    — line numbers
+pub const COLOR_RESET: &str = "\x1b[0m";
+
 /// Options controlling grep behaviour (output-format details live in the caller).
+#[derive(Clone, Copy)]
 pub struct GrepOpts {
     /// Only count matches; write a single summary line per file.
     pub count: bool,
@@ -16,6 +23,9 @@ pub struct GrepOpts {
     pub invert: bool,
     /// DLT storage header present (normal files); false for raw streams.
     pub with_storage_header: bool,
+    /// Highlight matched spans in bold red; color the line-number in bold green.
+    /// The caller is responsible for also coloring the prefix it passes in.
+    pub highlight: bool,
 }
 
 pub fn format_message(msg: &Message) -> String {
@@ -124,6 +134,24 @@ pub fn format_value(v: &Value) -> String {
     }
 }
 
+/// Writes `line` to `out` with every match of `pattern` wrapped in bold-red
+/// ANSI codes.  Falls back to a plain write when the pattern has no match.
+fn highlight_matches<W: Write>(
+    line: &str,
+    pattern: &regex::Regex,
+    out: &mut W,
+) -> std::io::Result<()> {
+    let mut last = 0;
+    for m in pattern.find_iter(line) {
+        out.write_all(line[last..m.start()].as_bytes())?;
+        out.write_all(COLOR_MATCH.as_bytes())?;
+        out.write_all(m.as_str().as_bytes())?;
+        out.write_all(COLOR_RESET.as_bytes())?;
+        last = m.end();
+    }
+    out.write_all(line[last..].as_bytes())
+}
+
 /// Search `path` for messages matching `pattern`, writing results to `out`.
 /// `prefix` is prepended to every output line (used for multi-file mode).
 pub fn grep_file<W: Write>(
@@ -169,11 +197,22 @@ pub fn grep_file<W: Write>(
             matches += 1;
             if !opts.count {
                 if opts.line_number {
-                    write!(out, "{prefix}{index}:")?;
+                    if opts.highlight {
+                        write!(out, "{prefix}{COLOR_LINENO}{index}{COLOR_RESET}:")?;
+                    } else {
+                        write!(out, "{prefix}{index}:")?;
+                    }
                 } else {
                     out.write_all(prefix.as_bytes())?;
                 }
-                writeln!(out, "{line}")?;
+                // In invert mode the line doesn't contain the pattern, so there's
+                // nothing to highlight; skip the extra find_iter pass.
+                if opts.highlight && !opts.invert {
+                    highlight_matches(&line, pattern, out)?;
+                } else {
+                    out.write_all(line.as_bytes())?;
+                }
+                out.write_all(b"\n")?;
             }
         }
 

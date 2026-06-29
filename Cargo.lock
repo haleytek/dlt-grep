@@ -272,7 +272,9 @@ dependencies = [
  "clap",
  "criterion",
  "dlt-core",
+ "rayon",
  "regex",
+ "walkdir",
 ]
 
 [[package]]
