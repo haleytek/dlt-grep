@@ -47,14 +47,26 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 | `--no-heading` | Force `filename:line` format even on a terminal |
 | `--color <auto\|always\|never>` | ANSI color control (default: `auto`) |
 
-## Build
+## Installation
+
+Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/falk/dlt-grep/releases/latest) — no Rust required.
+
+**Linux (x86-64)**
+```bash
+curl -L https://haleytek.ghe.com/falk/dlt-grep/releases/latest/download/dg-linux-x86_64 \
+  -o ~/.local/bin/dg && chmod +x ~/.local/bin/dg
+```
+
+Make sure `~/.local/bin` is on your `PATH`, or drop the binary anywhere that already is (e.g. `/usr/local/bin`).
+
+## Build from source
+
+Requires Rust 1.85+ (`edition = "2024"`). No system dependencies.
 
 ```bash
 cargo build --release
 # binary at target/release/dg
 ```
-
-Requires Rust 1.70+. No system dependencies.
 
 ## Benchmarks
 
