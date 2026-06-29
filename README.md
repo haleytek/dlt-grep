@@ -49,11 +49,11 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 
 ## Installation
 
-Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/falk/dlt-grep/releases/latest) — no Rust required.
+Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest) — no Rust required.
 
 **Linux (x86-64)**
 ```bash
-curl -L https://haleytek.ghe.com/falk/dlt-grep/releases/latest/download/dg-linux-x86_64 \
+curl -L https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest/download/dg-linux-x86_64 \
   -o ~/.local/bin/dg && chmod +x ~/.local/bin/dg
 ```
 
