@@ -10,6 +10,8 @@ When a new bug comes in, the first question is usually: *have we seen this befor
 
 `dg` makes it fast enough to be a normal part of the debugging workflow: point it at a directory of past bug reports and search for the error pattern, component name, or message sequence that characterises the new case. Results stream file by file as they complete, so you see hits immediately rather than waiting for the full archive to scan.
 
+For use cases related to debugging DLT (and other) log files contained within a singe bug report, [logcrab](https://github.com/daniel-freiermuth/logcrab) is very much recommended instead.
+
 ## Features
 
 - **Recursive directory search** — pass a directory or nothing (defaults to `.`) and `dg` finds all `*.dlt` files recursively, just like `rg`
