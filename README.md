@@ -4,6 +4,12 @@
 
 Instead of the traditional `dlt-convert -a file.dlt | grep pattern` pipeline — which decodes the entire file to ASCII before searching a single byte — `dg` parses the binary format directly, applies the regex on each structured message, and streams results to the terminal as each file completes. On a single 815 MB trace it is about **50× faster** than `dlt-convert | grep`.
 
+## Use case
+
+When a new bug comes in, the first question is usually: *have we seen this before?* Searching your own local log archive with `dlt-convert | grep` means waiting a minute or more per large file, making cross-file pattern searches impractical.
+
+`dg` makes it fast enough to be a normal part of the debugging workflow: point it at a directory of past bug reports and search for the error pattern, component name, or message sequence that characterises the new case. Results stream file by file as they complete, so you see hits immediately rather than waiting for the full archive to scan.
+
 ## Features
 
 - **Recursive directory search** — pass a directory or nothing (defaults to `.`) and `dg` finds all `*.dlt` files recursively, just like `rg`
