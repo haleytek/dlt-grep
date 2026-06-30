@@ -31,7 +31,7 @@ dg [OPTIONS] <PATTERN> [FILES...]
 dg 'error'
 
 # Search a specific directory
-dg 'VCCP.*fault' /logs/bugreport/
+dg '.*fault' /logs/bugreport/
 
 # Search a single file, case-insensitive
 dg -i 'warning' ECU1.dlt
@@ -57,7 +57,7 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 
 ## Installation
 
-Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest) — no Rust required.
+Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest).
 
 **Linux (x86-64)**
 ```bash
