@@ -59,10 +59,28 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 
 Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest).
 
-**Linux (x86-64)**
+**Linux (x86-64) — via `gh` CLI (recommended)**
+
+Requires the [GitHub CLI](https://cli.github.com/). If you don't have it, follow the [installation instructions](https://github.com/cli/cli#installation). First-time setup:
+
 ```bash
-curl -L https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest/download/dg-linux-x86_64 \
-  -o ~/.local/bin/dg && chmod +x ~/.local/bin/dg
+gh auth login --hostname haleytek.ghe.com
+```
+
+Then download the binary:
+
+```bash
+gh release download -R haleytek.ghe.com/haleytek/dlt-grep --pattern 'dg-linux-x86_64' -O ~/.local/bin/dg \
+  && chmod +x ~/.local/bin/dg
+```
+
+**Linux (x86-64) — manual download**
+
+1. Go to the [latest release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest) in your browser.
+2. Download `dg-linux-x86_64` from the Assets section.
+3. Move and rename the binary, then mark it executable:
+```bash
+mv ~/Downloads/dg-linux-x86_64 ~/.local/bin/dg && chmod +x ~/.local/bin/dg
 ```
 
 Make sure `~/.local/bin` is on your `PATH`, or drop the binary anywhere that already is (e.g. `/usr/local/bin`).
