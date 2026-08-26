@@ -57,33 +57,33 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 
 ## Installation
 
-Pre-built static binaries are attached to every [release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest).
+Pre-built static binaries are attached to every [release](https://github.com/haleytek/dlt-grep/releases/latest).
 
-**Linux (x86-64) — via `gh` CLI (recommended)**
-
-Requires the [GitHub CLI](https://cli.github.com/). If you don't have it, follow the [installation instructions](https://github.com/cli/cli#installation). First-time setup:
+**Linux (x86-64)**
 
 ```bash
-gh auth login --hostname haleytek.ghe.com
+mkdir -p ~/.local/bin
+curl -fL https://github.com/haleytek/dlt-grep/releases/latest/download/dg-linux-x86_64 \
+  -o ~/.local/bin/dg
+chmod +x ~/.local/bin/dg
 ```
 
-Then download the binary:
+
+**macOS (Apple silicon and Intel)**
 
 ```bash
-gh release download -R haleytek.ghe.com/haleytek/dlt-grep --pattern 'dg-linux-x86_64' -O ~/.local/bin/dg \
-  && chmod +x ~/.local/bin/dg
+mkdir -p ~/.local/bin
+case "$(uname -m)" in
+  arm64) asset=dg-macos-aarch64 ;;
+  x86_64) asset=dg-macos-x86_64 ;;
+  *) echo "unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+curl -fL "https://github.com/haleytek/dlt-grep/releases/latest/download/${asset}" \
+  -o ~/.local/bin/dg
+chmod +x ~/.local/bin/dg
 ```
 
-**Linux (x86-64) — manual download**
-
-1. Go to the [latest release](https://haleytek.ghe.com/haleytek/dlt-grep/releases/latest) in your browser.
-2. Download `dg-linux-x86_64` from the Assets section.
-3. Move and rename the binary, then mark it executable:
-```bash
-mv ~/Downloads/dg-linux-x86_64 ~/.local/bin/dg && chmod +x ~/.local/bin/dg
-```
-
-Make sure `~/.local/bin` is on your `PATH`, or drop the binary anywhere that already is (e.g. `/usr/local/bin`).
+Make sure `~/.local/bin` is on your `PATH`, or install the binary anywhere that already is (e.g. `/usr/local/bin`).
 
 ## Build from source
 
