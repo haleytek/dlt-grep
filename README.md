@@ -68,6 +68,21 @@ curl -fL https://github.com/haleytek/dlt-grep/releases/latest/download/dg-linux-
 chmod +x ~/.local/bin/dg
 ```
 
+
+**macOS (Apple silicon and Intel)**
+
+```bash
+mkdir -p ~/.local/bin
+case "$(uname -m)" in
+  arm64) asset=dg-macos-aarch64 ;;
+  x86_64) asset=dg-macos-x86_64 ;;
+  *) echo "unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
+esac
+curl -fL "https://github.com/haleytek/dlt-grep/releases/latest/download/${asset}" \
+  -o ~/.local/bin/dg
+chmod +x ~/.local/bin/dg
+```
+
 Make sure `~/.local/bin` is on your `PATH`, or install the binary anywhere that already is (e.g. `/usr/local/bin`).
 
 ## Build from source

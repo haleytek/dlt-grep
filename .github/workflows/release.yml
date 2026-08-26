@@ -5,27 +5,44 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            asset: dg-linux-x86_64
+            install_musl: true
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            asset: dg-macos-x86_64
+            install_musl: false
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            asset: dg-macos-aarch64
+            install_musl: false
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: x86_64-unknown-linux-musl
+          targets: ${{ matrix.target }}
 
       - name: Install musl tools
+        if: ${{ matrix.install_musl }}
         run: sudo apt-get install -y musl-tools
 
       - name: Build
-        run: cargo build --release --target x86_64-unknown-linux-musl
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Rename binary
-        run: cp target/x86_64-unknown-linux-musl/release/dg dg-linux-x86_64
+        run: cp target/${{ matrix.target }}/release/dg ${{ matrix.asset }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dg-linux-x86_64
-          path: dg-linux-x86_64
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
 
   release:
     needs: build
@@ -37,4 +54,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: dg-linux-x86_64/dg-linux-x86_64
+          files: |
+            dg-linux-x86_64/dg-linux-x86_64
+            dg-macos-x86_64/dg-macos-x86_64
+            dg-macos-aarch64/dg-macos-aarch64
