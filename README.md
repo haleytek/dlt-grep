@@ -136,3 +136,9 @@ Competitors:
 **`dg` wins the directory set 8.5× over sequential, 3× over 32-way parallel dlt-convert (warm).** One in-process rayon thread pool, no fork/exec, no inter-process pipes.
 
 **One exception: cold cache + many small files, parallel dlt-convert wins by ~60%.** 10 independent processes give the kernel 10 separate readahead streams simultaneously. This effect vanishes at scale — any file large enough to be CPU-bound on conversion flips the result back in `dg`'s favour.
+
+## License
+
+Copyright 2026 HaleyTek AB.
+
+Licensed under the [Apache License 2.0](LICENSE).

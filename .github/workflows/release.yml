@@ -50,6 +50,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
 
       - uses: softprops/action-gh-release@v2
@@ -58,3 +60,6 @@ jobs:
             dg-linux-x86_64/dg-linux-x86_64
             dg-macos-x86_64/dg-macos-x86_64
             dg-macos-aarch64/dg-macos-aarch64
+            LICENSE
+            NOTICE
+            THIRD_PARTY_NOTICES.html
