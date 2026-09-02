@@ -1,5 +1,5 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use dlt_grep::{grep_file, GrepOpts};
+use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
+use dlt_grep::{GrepOpts, SortBy, grep_file};
 use rayon::prelude::*;
 use regex::RegexBuilder;
 use std::path::PathBuf;
@@ -8,28 +8,29 @@ use walkdir::WalkDir;
 /// Patterns to benchmark: (label, pattern, case_insensitive)
 const PATTERNS: &[(&str, &str, bool)] = &[
     // Baseline — every message matches; measures pure parse + format cost
-    ("match_all",           r".",                       false),
+    ("match_all", r".", false),
     // Simple literal, ~20% hit rate
-    ("literal_error",       r"error",                   false),
+    ("literal_error", r"error", false),
     // Same literal, case-insensitive — exercises regex case-fold path
-    ("literal_error_icase", r"error",                   true),
+    ("literal_error_icase", r"error", true),
     // Anchored prefix — short-circuits after ECU field
-    ("anchor_ecu_HPA",      r"^[0-9.]+ HPA ",          false),
+    ("anchor_ecu_HPA", r"^[0-9.]+ [0-9.]+ HPA ", false),
     // Alternation
-    ("alternation",         r"warn   |error  ",         false),
+    ("alternation", r"warn   |error  ", false),
     // Multi-segment: app id + keyword anywhere in payload
-    ("multi_segment",       r"DFLT.*failed",            false),
+    ("multi_segment", r"DFLT.*failed", false),
     // Rare match — nearly nothing matches; measures the no-match fast path
-    ("rare_match",          r"__unlikely_sentinel__",   false),
+    ("rare_match", r"__unlikely_sentinel__", false),
 ];
 
 fn make_opts() -> GrepOpts {
     GrepOpts {
-        count: true,       // suppress stdout; we only measure parse + match
+        count: true, // suppress stdout; we only measure parse + match
         line_number: false,
         invert: false,
         with_storage_header: true,
         highlight: false,
+        sort_by: SortBy::Monotonic,
     }
 }
 
@@ -49,7 +50,10 @@ fn bench_grep(c: &mut Criterion) {
         }
     };
     if !path.exists() {
-        eprintln!("bench: skipping single_file — file not found: {}", path.display());
+        eprintln!(
+            "bench: skipping single_file — file not found: {}",
+            path.display()
+        );
         return;
     }
 
@@ -68,8 +72,7 @@ fn bench_grep(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
             b.iter(|| {
-                grep_file(&path, &re, &opts, &mut std::io::sink(), "")
-                    .expect("grep_file failed")
+                grep_file(&path, &re, &opts, &mut std::io::sink(), "").expect("grep_file failed")
             });
         });
     }
@@ -96,7 +99,10 @@ fn bench_grep_dir(c: &mut Criterion) {
         }
     };
     if !dir.exists() {
-        eprintln!("bench: skipping multi_file — dir not found: {}", dir.display());
+        eprintln!(
+            "bench: skipping multi_file — dir not found: {}",
+            dir.display()
+        );
         return;
     }
 
@@ -116,7 +122,10 @@ fn bench_grep_dir(c: &mut Criterion) {
     files.sort_unstable();
 
     if files.is_empty() {
-        eprintln!("bench: skipping multi_file — no *.dlt files found in {}", dir.display());
+        eprintln!(
+            "bench: skipping multi_file — no *.dlt files found in {}",
+            dir.display()
+        );
         return;
     }
 
@@ -145,21 +154,17 @@ fn bench_grep_dir(c: &mut Criterion) {
             .build()
             .unwrap_or_else(|e| panic!("bad pattern {pat:?}: {e}"));
 
-        group.bench_with_input(
-            BenchmarkId::from_parameter(label),
-            label,
-            |b, _| {
-                b.iter(|| {
-                    files
-                        .par_iter()
-                        .map(|p| {
-                            grep_file(p, &re, &opts, &mut std::io::sink(), "")
-                                .expect("grep_file failed")
-                        })
-                        .sum::<u64>()
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
+            b.iter(|| {
+                files
+                    .par_iter()
+                    .map(|p| {
+                        grep_file(p, &re, &opts, &mut std::io::sink(), "")
+                            .expect("grep_file failed")
+                    })
+                    .sum::<u64>()
+            });
+        });
     }
 
     group.finish();

@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use dlt_grep::{grep_file, GrepOpts, COLOR_PATH, COLOR_RESET};
+use dlt_grep::{COLOR_PATH, COLOR_RESET, GrepOpts, SortBy, grep_file};
 use rayon::prelude::*;
 use regex::RegexBuilder;
 use std::{
@@ -19,6 +19,28 @@ enum ColorMode {
     Always,
     /// Never emit color.
     Never,
+}
+
+/// Timestamp column used for sorting output messages.
+#[derive(clap::ValueEnum, Debug, Clone, Copy, Default)]
+enum SortMode {
+    /// Keep messages in file read order.
+    None,
+    /// DLT standard-header timestamp: 0.1 ms ticks since ECU start.
+    #[default]
+    Monotonic,
+    /// DLT storage-header timestamp.
+    Storage,
+}
+
+impl From<SortMode> for SortBy {
+    fn from(value: SortMode) -> Self {
+        match value {
+            SortMode::None => SortBy::None,
+            SortMode::Monotonic => SortBy::Monotonic,
+            SortMode::Storage => SortBy::Storage,
+        }
+    }
 }
 
 /// grep-like search inside DLT (Diagnostic Log and Trace) files
@@ -59,6 +81,15 @@ struct Args {
     /// Control ANSI color output
     #[arg(long, value_name = "WHEN", default_value = "auto")]
     color: ColorMode,
+
+    /// Sort matching messages within each file by timestamp column, or keep file order
+    #[arg(
+        long = "sort",
+        alias = "sort-by",
+        value_name = "KEY",
+        default_value = "monotonic"
+    )]
+    sort: SortMode,
 }
 
 fn main() {
@@ -154,25 +185,20 @@ fn run() -> Result<i32> {
     // Disabled for --count (which always uses filename:N) and when piping.
     let use_heading = show_filename && !args.count && !args.no_heading && is_tty;
 
+    let sort_by = SortBy::from(args.sort);
+
     let opts = GrepOpts {
         count: args.count,
         line_number: args.line_number,
         invert: args.invert,
         with_storage_header: !args.no_storage_header,
         highlight: use_color,
+        sort_by,
     };
 
-    // Stream results to stdout as each file completes — rg-style.
-    //
-    // A worker thread drives rayon's parallel iterator with for_each_with,
-    // which clones the Sender once per rayon thread.  When for_each_with
-    // returns all clones are dropped, closing the channel and terminating
-    // the for-loop below.  The main thread therefore sees each file's output
-    // the moment that file finishes, without waiting for slower siblings.
-    //
-    // Output order is completion order (fastest file first), matching rg's
-    // default behaviour.  Within each file all lines are contiguous because
-    // grep_file writes into a private Vec<u8> before the send.
+    // Stream one complete file at a time as each rayon worker finishes.  Match
+    // ordering is per-file: `--sort none` keeps parse order, otherwise each
+    // file's matches are timestamp-sorted before the file buffer is sent.
     let (tx, rx) = std::sync::mpsc::channel::<(PathBuf, Vec<u8>, u64, Option<anyhow::Error>)>();
 
     let worker = {
@@ -190,7 +216,7 @@ fn run() -> Result<i32> {
                 };
                 let mut buf: Vec<u8> = Vec::new();
                 let (n, err) = match grep_file(path, &pattern, &opts, &mut buf, &prefix) {
-                    Ok(n)  => (n, None),
+                    Ok(n) => (n, None),
                     Err(e) => (0, Some(e)),
                 };
                 // Ignore SendError: receiver gone means broken pipe on the main
@@ -226,21 +252,29 @@ fn run() -> Result<i32> {
                     write!(out, "{}\n", path.display())
                 };
                 if let Err(e) = write_res {
-                    if e.kind() == std::io::ErrorKind::BrokenPipe { return Ok(0); }
+                    if e.kind() == std::io::ErrorKind::BrokenPipe {
+                        return Ok(0);
+                    }
                     return Err(e.into());
                 }
                 if let Err(e) = out.write_all(&buf) {
-                    if e.kind() == std::io::ErrorKind::BrokenPipe { return Ok(0); }
+                    if e.kind() == std::io::ErrorKind::BrokenPipe {
+                        return Ok(0);
+                    }
                     return Err(e.into());
                 }
                 if let Err(e) = out.write_all(b"\n") {
-                    if e.kind() == std::io::ErrorKind::BrokenPipe { return Ok(0); }
+                    if e.kind() == std::io::ErrorKind::BrokenPipe {
+                        return Ok(0);
+                    }
                     return Err(e.into());
                 }
             }
         } else if !buf.is_empty() {
             if let Err(e) = out.write_all(&buf) {
-                if e.kind() == std::io::ErrorKind::BrokenPipe { return Ok(0); }
+                if e.kind() == std::io::ErrorKind::BrokenPipe {
+                    return Ok(0);
+                }
                 return Err(e.into());
             }
         }
