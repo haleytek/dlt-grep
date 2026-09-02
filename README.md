@@ -2,20 +2,20 @@
 
 `dg` is a fast, `rg`-like search tool for [DLT (Diagnostic Log and Trace)](https://www.autosar.org/fileadmin/standards/foundation/1-0/AUTOSAR_PRS_DiagnosticLogAndTraceProtocol.pdf) binary log files, the standard logging format in automotive ECUs and embedded Linux systems.
 
-Instead of the traditional `dlt-convert -a file.dlt | grep pattern` pipeline — which decodes the entire file to ASCII before searching a single byte — `dg` parses the binary format directly, applies the regex on each structured message, and streams results to the terminal as each file completes. On a single 815 MB trace it is about **50× faster** than `dlt-convert | grep`.
+Instead of the traditional `dlt-convert -a file.dlt | grep pattern` pipeline — which decodes the entire file to ASCII before searching a single byte — `dg` parses the binary format directly, applies the regex on each structured message, and prints timestamp-sorted results within each file. On a single 815 MB trace it is about **50× faster** than `dlt-convert | grep`.
 
 ## Use case
 
 When a new bug comes in, the first question is usually: *have we seen this before?* Searching your own local log archive with `dlt-convert | grep` means waiting a minute or more per large file, making cross-file pattern searches impractical.
 
-`dg` makes it fast enough to be a normal part of the debugging workflow: point it at a directory of past bug reports and search for the error pattern, component name, or message sequence that characterises the new case. Results stream file by file as they complete, so you see hits immediately rather than waiting for the full archive to scan.
+`dg` makes it fast enough to be a normal part of the debugging workflow: point it at a directory of past bug reports and search for the error pattern, component name, or message sequence that characterises the new case. Results are grouped by file, sorted within each file by DLT monotonic timestamp by default, with ISO-8601 storage timestamps printed for wall-clock context and storage timestamp sorting available when wall-clock ordering is the better fit.
 
 For use cases related to debugging DLT (and other) log files contained within a singe bug report, [logcrab](https://github.com/daniel-freiermuth/logcrab) is very much recommended instead.
 
 ## Features
 
 - **Recursive directory search** — pass a directory or nothing (defaults to `.`) and `dg` finds all `*.dlt` files recursively, just like `rg`
-- **Parallel processing** — files are searched concurrently via rayon; results stream to stdout as each file finishes, not after all files complete
+- **Parallel processing** — files are searched concurrently via rayon; matching messages are sorted within each file before printing
 - **`rg`-like output** — heading format on TTY (filename header, matches below, blank separator), `filename:line` when piped; ANSI color with match highlighting
 - **Full regex support** — powered by Rust's `regex` crate; case-insensitive (`-i`), inverted match (`-v`), anchors, alternation, etc.
 - **Exit codes** — `0` matches found, `1` no matches, `2` error; compatible with shell pipelines
@@ -54,19 +54,22 @@ dg -ni 'timeout' /logs/ --color=always | less -R
 | `--no-storage-header` | Input has no DLT storage header (raw/live streams) |
 | `--no-heading` | Force `filename:line` format even on a terminal |
 | `--color <auto\|always\|never>` | ANSI color control (default: `auto`) |
+| `--sort <none\|monotonic\|storage>` | Keep file order, sort by DLT monotonic timestamp (default), or sort by storage timestamp |
 
 ## Installation
 
-Pre-built static binaries are attached to every [release](https://github.com/haleytek/dlt-grep/releases/latest).
+Pre-built binaries are attached to every [release](https://github.com/haleytek/dlt-grep/releases/latest).
 
-**Linux (x86-64)**
+**Linux (x86-64, Ubuntu/Debian/Fedora/Arch/glibc)**
 
 ```bash
 mkdir -p ~/.local/bin
-curl -fL https://github.com/haleytek/dlt-grep/releases/latest/download/dg-linux-x86_64 \
+curl -fL https://github.com/haleytek/dlt-grep/releases/latest/download/dg-linux-x86_64-gnu \
   -o ~/.local/bin/dg
 chmod +x ~/.local/bin/dg
 ```
+
+Use `dg-linux-x86_64-musl` only when you need a fully static portable Linux binary.
 
 
 **macOS (Apple silicon and Intel)**
