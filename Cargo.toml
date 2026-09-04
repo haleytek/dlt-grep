@@ -1,6 +1,6 @@
 [package]
 name = "dlt-grep"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "A grep-like tool for DLT (Diagnostic Log and Trace) files"
 license = "Apache-2.0"
