@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use regex::RegexBuilder;
 use std::{
     io::{IsTerminal, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use walkdir::WalkDir;
 
@@ -107,11 +107,30 @@ fn main() {
     }
 }
 
+/// Whether `path` has a plain, gzip-compressed, or zstd-compressed DLT suffix.
+fn is_dlt_path(path: &Path) -> bool {
+    let Some(extension) = path.extension() else {
+        return false;
+    };
+
+    if extension.eq_ignore_ascii_case("dlt") {
+        return true;
+    }
+    if !extension.eq_ignore_ascii_case("gz") && !extension.eq_ignore_ascii_case("zst") {
+        return false;
+    }
+
+    path.file_stem()
+        .and_then(|stem| Path::new(stem).extension())
+        .map(|inner| inner.eq_ignore_ascii_case("dlt"))
+        .unwrap_or(false)
+}
+
 /// Expand the user-supplied list into concrete file paths.
 ///
-/// - Empty list → walk `.` for `*.dlt`.
+/// - Empty list → walk `.` for `*.dlt`, `*.dlt.gz`, and `*.dlt.zst`.
 /// - A supplied path that is a file → use it as-is (any extension).
-/// - A supplied path that is a directory → walk it recursively for `*.dlt`.
+/// - A supplied path that is a directory → walk it recursively for supported DLT files.
 ///
 /// Results are sorted so output order is stable regardless of rayon scheduling.
 fn collect_files(inputs: &[PathBuf]) -> Vec<PathBuf> {
@@ -135,12 +154,7 @@ fn collect_files(inputs: &[PathBuf]) -> Vec<PathBuf> {
                 .filter_map(|e| e.ok())
             {
                 let path = entry.path();
-                if path.is_file()
-                    && path
-                        .extension()
-                        .map(|ext| ext.eq_ignore_ascii_case("dlt"))
-                        .unwrap_or(false)
-                {
+                if path.is_file() && is_dlt_path(path) {
                     files.push(path.to_path_buf());
                 }
             }
@@ -291,4 +305,38 @@ fn run() -> Result<i32> {
     }
 
     Ok(if total_matches == 0 { 1 } else { 0 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+
+    #[test]
+    fn collect_files_discovers_plain_gzip_and_zstd_dlt_files() {
+        let root = std::env::temp_dir().join(format!(
+            "dlt-grep-discovery-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        let nested = root.join("nested");
+        fs::create_dir_all(&nested).expect("create test directory");
+
+        let expected = [
+            root.join("a.dlt"),
+            root.join("b.DLT.GZ"),
+            nested.join("c.dlt.zst"),
+        ];
+        for path in &expected {
+            File::create(path).expect("create test file");
+        }
+        File::create(root.join("not-dlt.gz")).expect("create ignored gzip file");
+        File::create(root.join("not-dlt.txt")).expect("create ignored text file");
+
+        let mut expected = expected.to_vec();
+        expected.sort_unstable();
+        assert_eq!(collect_files(std::slice::from_ref(&root)), expected);
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
 }

@@ -4,7 +4,14 @@ use dlt_core::{
     parse::{DltParseError, ParsedMessage},
     read::{DltMessageReader, read_message},
 };
-use std::{cmp::Ordering, fmt::Write as FmtWrite, fs::File, io::Write, path::Path};
+use flate2::read::GzDecoder;
+use std::{
+    cmp::Ordering,
+    fmt::Write as FmtWrite,
+    fs::File,
+    io::{Read, Write},
+    path::Path,
+};
 
 /// ANSI color codes (only emitted when the caller sets `GrepOpts::highlight`).
 pub const COLOR_PATH: &str = "\x1b[1;35m"; // bold magenta  — file paths
@@ -326,14 +333,28 @@ pub fn write_grep_matches<W: Write>(
     Ok(())
 }
 
+fn open_dlt_reader(path: &Path) -> Result<Box<dyn Read>> {
+    let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
+
+    match path.extension() {
+        Some(extension) if extension.eq_ignore_ascii_case("gz") => {
+            Ok(Box::new(GzDecoder::new(file)))
+        }
+        Some(extension) if extension.eq_ignore_ascii_case("zst") => {
+            let decoder = zstd::stream::read::Decoder::new(file)
+                .with_context(|| format!("cannot decompress {}", path.display()))?;
+            Ok(Box::new(decoder))
+        }
+        _ => Ok(Box::new(file)),
+    }
+}
+
 pub fn grep_file_matches(
     path: &Path,
     pattern: &regex::Regex,
     opts: &GrepOpts,
 ) -> Result<(Vec<GrepMatch>, u64)> {
-    let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
-
-    let mut reader = DltMessageReader::new(file, opts.with_storage_header);
+    let mut reader = DltMessageReader::new(open_dlt_reader(path)?, opts.with_storage_header);
 
     let mut index: u64 = 0;
     let mut matches: u64 = 0;
@@ -388,9 +409,7 @@ fn grep_file_unsorted<W: Write>(
     out: &mut W,
     prefix: &str,
 ) -> Result<u64> {
-    let file = File::open(path).with_context(|| format!("cannot open {}", path.display()))?;
-
-    let mut reader = DltMessageReader::new(file, opts.with_storage_header);
+    let mut reader = DltMessageReader::new(open_dlt_reader(path)?, opts.with_storage_header);
 
     let mut index: u64 = 0;
     let mut matches: u64 = 0;
@@ -570,5 +589,45 @@ mod tests {
         );
 
         let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn grep_file_reads_gzip_and_zstd_inputs() {
+        let base = std::env::temp_dir().join(format!(
+            "dlt-grep-compression-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("test")
+        ));
+        let bytes = message(10_000, 20, 42).as_bytes();
+        let gzip_path = base.with_extension("dlt.gz");
+        let zstd_path = base.with_extension("dlt.zst");
+
+        {
+            let file = File::create(&gzip_path).expect("create gzip file");
+            let mut encoder = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+            encoder.write_all(&bytes).expect("compress gzip input");
+            encoder.finish().expect("finish gzip input");
+        }
+        std::fs::write(
+            &zstd_path,
+            zstd::stream::encode_all(bytes.as_slice(), 0).expect("compress zstd input"),
+        )
+        .expect("write zstd file");
+
+        let pattern = Regex::new("id=42").unwrap();
+        for (path, sort_by) in [(&gzip_path, SortBy::Monotonic), (&zstd_path, SortBy::None)] {
+            let mut output = Vec::new();
+            let matches = grep_file(path, &pattern, &opts(sort_by), &mut output, "")
+                .expect("grep compressed DLT");
+            assert_eq!(matches, 1);
+            assert!(
+                String::from_utf8(output)
+                    .unwrap()
+                    .contains("[non-verbose id=42]")
+            );
+        }
+
+        std::fs::remove_file(gzip_path).expect("remove gzip file");
+        std::fs::remove_file(zstd_path).expect("remove zstd file");
     }
 }

@@ -14,10 +14,11 @@ For use cases related to debugging DLT (and other) log files contained within a 
 
 ## Features
 
-- **Recursive directory search** — pass a directory or nothing (defaults to `.`) and `dg` finds all `*.dlt` files recursively, just like `rg`
+- **Recursive directory search** — pass a directory or nothing (defaults to `.`) and `dg` finds `*.dlt`, `*.dlt.gz`, and `*.dlt.zst` files recursively, just like `rg`
 - **Parallel processing** — files are searched concurrently via rayon; matching messages are sorted within each file before printing
 - **`rg`-like output** — heading format on TTY (filename header, matches below, blank separator), `filename:line` when piped; ANSI color with match highlighting
 - **Full regex support** — powered by Rust's `regex` crate; case-insensitive (`-i`), inverted match (`-v`), anchors, alternation, etc.
+- **Transparent decompression** — gzip- and zstd-compressed DLT files are streamed directly without an unpacking step
 - **Exit codes** — `0` matches found, `1` no matches, `2` error; compatible with shell pipelines
 
 ## Usage
@@ -139,6 +140,10 @@ Competitors:
 **`dg` wins the directory set 8.5× over sequential, 3× over 32-way parallel dlt-convert (warm).** One in-process rayon thread pool, no fork/exec, no inter-process pipes.
 
 **One exception: cold cache + many small files, parallel dlt-convert wins by ~60%.** 10 independent processes give the kernel 10 separate readahead streams simultaneously. This effect vanishes at scale — any file large enough to be CPU-bound on conversion flips the result back in `dg`'s favour.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history.
 
 ## License
 
